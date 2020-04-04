@@ -280,7 +280,7 @@ graph TD
 
 了解1999年各个省份的消费水平在国内的情况
 
-#### 3.4.2.3 kmeans参数说明
+#### 3.4.2.3 参数说明
 
 ​		**n_clusters**：整型，缺省值=8 ，生成的聚类数。
 　　**max_iter**：整型，缺省值=300 。
@@ -289,7 +289,7 @@ graph TD
 　　　　　 用不同的聚类中心初始化值运行算法的次数，最终解是在inertia意义下选出的最优结果。
 　　**init**：有三个可选值：’k-means++’， ‘random’，或者传递一个ndarray向量。
 　　　　 此参数指定初始化方法，默认值为 ‘k-means++’。
-　　　　（１）‘k-means++’ 用一种特殊的方法选定初始聚类中发，可加速迭代过程的收敛。
+　　　　（１）‘k-means++’ 用一种特殊的方法选定初始聚类中心，可加速迭代过程的收敛。
 　　　　（２）‘random’ 随机从训练数据中选取初始质心。
 　　　　（３）如果传递的是一个ndarray，则应该形如 (n_clusters, n_features) 并给出初始质心。
 　　**precompute_distances**：三个可选值，‘auto’，True 或者 False。
@@ -310,8 +310,189 @@ graph TD
 #### 3.4.2.4 代码实现
 
 ```python
+# 导入库函数
+import numpy as np
+from sklearn.cluster import KMeans
 
+# 定义函数 
+## 读取数据
+def load_data(file_name):
+    fr = open(file_name,'r+')
+    ## 一次读取整个文件
+    lines = fr.readlines()
+    ## 存放城市各类消费信息
+    ret_data = []
+    ## 城市名称
+    ret_city_name = []
+    
+    for line in lines:
+        items = line.strip().split(",")
+        ret_city_name.append(items[0])
+        ret_data.append([ float(items[i]) for i in range(1,len(items))])
+            
+    return ret_data,ret_city_name
+
+
+# 加载数据，创建K-means算法实例，并进行训练，获得标签
+if __name__ == '__main__':
+    # 定义参数
+    ## 文件参数
+    file_path_input = '..\\02 数据\\聚类\\'
+    file_name_input = '31省市居民家庭消费水平-city.txt'
+    ## 聚类参数
+    #n_cluster_value = 3
+    ## 存放聚类数据
+    #city_cluster = [[],[],[]]
+    
+    ## 输入分类
+    n_cluster_value = int(input("请确定需要分几类？："))
+    city_cluster = []
+    for i in range(n_cluster_value):
+        city_cluster.append([])
+    
+    # 载入数据
+    data,city_name = load_data(file_path_input+file_name_input)
+ 
+    # 创建kmeans实例
+    km_example = KMeans(n_clusters=n_cluster_value)
+    
+    # 打标签
+    label = km_example.fit_predict(data)
+    expenses = np.sum(km_example.cluster_centers_,axis=1)
+    #p·rint(expenses)
+    
+    for i in range(len(city_name)):
+        #print(city_name[i])
+        city_cluster[label[i]].append(city_name[i])
+        
+    for i in range(len(city_cluster)):
+        print("Expenses:%.2f"%expenses[i])
+        print(city_cluster[i])
 ```
+
+#### 3.4.2.5 实现效果
+
+![image-20200404191551645](C:\Users\kejie\AppData\Roaming\Typora\typora-user-images\image-20200404191551645.png)
+
+## 3.5 DBSCAN算法
+
+### 3.5.1 算法说明
+
+DBSCAN密度聚类将数据点分为三类
+
+- **核心点**：在半径Eps内含有超过MinPts数目的点
+- **边界点**：在半径Eps内点的数量小于MinPts，但是落在核心点的领域内
+- **噪音点**：既不是核心点，又不是边界点的点
+
+![image-20200404192125241](C:\Users\kejie\AppData\Roaming\Typora\typora-user-images\image-20200404192125241.png)
+
+**算法流程**
+
+```mermaid
+graph TD
+	start((开始)) --> step1[将所有点标记为核心点,边界点或噪声点]
+	step1 --> step2[删除噪声点]
+	step2 --> step3[为距离在Eps之内的所有核心点之间赋予一条边]
+	step3 --> step4[每组联通的核心点形成一个簇]
+	step4 --> step5[将每个边界点指派到一个与之关联的核心点的簇中]
+	step5 --> stop((结束))
+```
+
+### 3.5.2 算法应用
+
+#### 3.5.2.1 数据介绍
+
+现有大学校园网的日志数据，290条大学生的校园网使用情况呼叫，数据包括用户ID，设备的MAC地址，IP地址，开始上网时间，停止上网时间，上网时长，校园网套餐等，利用已有数据，分析学生上网的模式。
+
+![image-20200404193328831](C:\Users\kejie\AppData\Roaming\Typora\typora-user-images\image-20200404193328831.png)
+
+#### 3.5.2.2 分析目的
+
+分析学生上网时间和上网时长的模式
+
+#### 3.5.2.3 参数说明
+
+- eps:两个样本被看作邻居节点的最大距离
+- min_samples:簇的样本数
+- metric:距离计算方式
+
+#### 3.5.2.4 代码实现
+
+```python
+# 导入库
+from sklearn.cluster import DBSCAN
+from sklearn import metrics
+import matplotlib.pyplot as plt
+import numpy as np
+
+# 定义函数
+def read_data(file_name):
+    mac2id = dict()
+    online_times = []
+    ## 读取数据
+    fr = open(file_name,'r+',encoding='utf-8')
+    lines = fr.readlines()
+    ## 构建数据结构
+    for line in lines:
+        mac = line.split(',')[2]
+        online_time = int(line.split(',')[6])
+        start_time = int(line.split(',')[4].split(' ')[1].split(':')[0])
+        if mac not in mac2id:
+            mac2id[mac] = len(online_times)
+            online_times.append((start_time,online_time))
+        else:
+            online_times[mac2id[mac]] = [(start_time,online_time)]
+        
+    real_X = np.array(online_times).reshape((-1,2))  
+    return real_X
+
+
+
+# 主模块
+if __name__ == '__main__':
+    # 定义参数
+    ## 文件参数
+    file_path_input = '..\\02 数据\\聚类\\'
+    file_name_input = '学生月上网时间分布-TestData.txt'
+    
+    data = read_data(file_path_input+file_name_input)
+    
+    # 调用DBSCAN算法
+    ## 在线小时
+    online_hour_num = data[:,0:1]
+    ## 创建DBSCAN实例
+    db = DBSCAN(eps=0.01,min_samples=20).fit(online_hour_num)
+    ## 数据的簇标签
+    labels = db.labels_
+    
+    ## 打印数据被标记的标签，计算标签为-1，即噪声数据的比例
+    print('Labels: ')
+    print(labels)
+    noise_ratio = len(labels[labels[:]==-1]) / len(labels)
+    print('Noise ratio:',format(noise_ratio,'.2%'))
+    
+    ## 计算簇的个数并打印，评价聚类效果
+    n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+    print('Estimated number of clusters:%d ' %n_clusters)
+    print('Silgouette Coefficient:%0.3f' %metrics.silhouette_score(online_hour_num,labels))
+    
+    ## 打印各簇标号和各簇数据
+    for i in range(n_clusters):
+        print('Cluster ',i,':')
+        print(list(online_hour_num[labels == i].flatten()))
+    
+    plt.hist(online_hour_num,24)
+```
+
+#### 3.5.2.6 实现效果
+
+![image-20200404202914171](C:\Users\kejie\AppData\Roaming\Typora\typora-user-images\image-20200404202914171.png)
+
+![image-20200404203058187](C:\Users\kejie\AppData\Roaming\Typora\typora-user-images\image-20200404203058187.png)
+
+上网时间大多聚集在22点和23点
+
+## 3.6 PCA方法及其应用
 
 
 
@@ -322,3 +503,4 @@ graph TD
 3. Andrew Ng,Machine Learning,http://cs229.stanford.edu/
 4. FeiFei Li,CS231n,http://cs231n.stanford.edu/
 5. David Silver,Reinforcement Learninng,http://t.cn/RIAfRUt
+6. DBSCAN算法可视化展示https://www.naftaliharris.com/blog/visualizing-dbscan-clustering/

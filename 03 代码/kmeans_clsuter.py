@@ -45,7 +45,7 @@ if __name__ == '__main__':
     n_cluster_value = int(input("请确定需要分几类？："))
     city_cluster = []
     for i in range(n_cluster_value):
-        city_cluster.append([])
+        city_cluster.append([])Q
     
     # 载入数据
     data,city_name = load_data(file_path_input+file_name_input)
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     # 打标签
     label = km_example.fit_predict(data)
     expenses = np.sum(km_example.cluster_centers_,axis=1)
-    #print(expenses)
+    #p·rint(expenses)
     
     for i in range(len(city_name)):
         #print(city_name[i])
